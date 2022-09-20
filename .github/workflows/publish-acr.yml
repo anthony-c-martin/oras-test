@@ -1,0 +1,52 @@
+name: Publish ACR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  ACR_REGISTRY: antregistry2
+  BICEP_PROVIDER_NAME: github
+  BICEP_PROVIDER_VERSION: v1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  upload-types:
+    name: Upload Types
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install oras
+        run: |
+          curl -LO https://github.com/oras-project/oras/releases/download/v0.14.1/oras_0.14.1_linux_amd64.tar.gz
+          mkdir -p oras-install/
+          tar -zxf oras_0.14.1_*.tar.gz -C oras-install/
+          mv oras-install/oras /usr/local/bin/
+          rm -rf oras_0.14.1_*.tar.gz oras-install/
+        working-directory: ${{ env.RUNNER_TEMP }}
+        
+      - name: Az CLI login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.ACR_CLIENT_ID }}
+          tenant-id: ${{ secrets.ACR_TENANT_ID }}
+          subscription-id: ${{ secrets.ACR_SUBSCRIPTION_ID }}
+
+      - name: Generate types.zip
+        run: |
+          cd ./types
+          zip -r ../types.zip ./
+
+      - name: Upload to registry
+        run: |
+          az acr login -n ${{ env.ACR_REGISTRY }}
+          oras push '${{ env.ACR_REGISTRY }}.azurecr.io/${{ env.BICEP_PROVIDER_NAME }}/types:${{ env.BICEP_PROVIDER_VERSION }}' \
+            --config /dev/null:application/vnd.ms.bicep.types.config.v1+json \
+            ./types.zip:application/vnd.ms.bicep.types.layer.v1+zip

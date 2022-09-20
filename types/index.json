@@ -1,0 +1,9 @@
+{
+    "Resources": {
+        "repository@v1": {
+            "RelativePath": "repository/types.json",
+            "Index": 11
+        }
+    },
+    "Functions": {}
+}
